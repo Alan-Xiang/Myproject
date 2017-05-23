@@ -1,3 +1,0 @@
-creating a branch is very quick and simple.
-test "fast forward" .
-

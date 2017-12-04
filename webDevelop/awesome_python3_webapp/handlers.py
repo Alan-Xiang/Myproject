@@ -163,7 +163,7 @@ def manage(request):
     return 'redirect:/manage/comments'
 
 @get('/manage/comments')
-def manage_comments(request, *, page='1'):
+def manage_comments(request, *, page='1', t=None):
     return {
         '__template__': 'manage_comments.html',
         'page_index': get_page_index(page)

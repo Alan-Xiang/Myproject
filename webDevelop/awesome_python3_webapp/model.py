@@ -24,7 +24,7 @@ class User(Model):
 
 	id=StringField(primary_key=True,default=next_id)
 	email=StringField()
-	password=StringField()
+	passwd=StringField()
 	admin=BooleanField()
 	name=StringField()
 	image=StringField()

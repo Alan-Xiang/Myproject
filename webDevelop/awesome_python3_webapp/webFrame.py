@@ -39,7 +39,7 @@ def post(path):
 		@functools.wraps(func)
 		def wrappers(*args,**kw):
 			return func(*args,**kw)
-		wrappers.__method__='post'
+		wrappers.__method__='POST'
 		wrappers.__route__=path
 		return wrappers
 	return decorator
@@ -56,7 +56,7 @@ def get_named_kw_args(fn):
 	args=[]
 	params=inspect.signature(fn).parameters
 	for name,param in params.items():
-		if param.kind==inspect.Parameter.KEYWORD_ONLY:
+		if param.kind==inspect.Parameter.KEYWORD_ONLY and param.default== inspect.Parameter.empty:
 			args.append(name)
 	return tuple(args)
 
@@ -81,7 +81,7 @@ def has_request_kw_args(fn):
 			found= True
 			continue
 		if found and (param.kind!=inspect.Parameter.VAR_POSITIONAL and param.kind !=inspect.Parameter.KEYWORD_ONLY and param.kind != inspect.Parameter.VAR_KEYWORD):
-			raise ValueError('request parameter must be the last named parameter in function: %s%S'%(fn.__name__,str(sig)))
+			raise ValueError('request parameter must be the last named parameter in function: %s%s'%(fn.__name__,str(sign)))
 
 	return found
 
@@ -103,27 +103,30 @@ class RequestHandler(object):
 	#make 'RequestHandler' instance can act as one func
 	async def __call__(self,request):
 		kw=None
-		if self._has_var_kw_args or self._has_named_kw_args or self._has_request_args:
+		if self._has_var_kw_args or self._has_named_kw_args or self._required_kw_args:
 			if request.method=='POST':
 				if not request.content_type:
-					return web.HTTPBadRequest('Missing Content-Type.')
+					return web.HTTPBadRequest(text='Missing Content-Type.')
 				ct=request.content_type.lower()
-				if ct.startswith('applicaton/json'):
+				logging.info('show content-type of request: %s'%ct)
+				if ct.startswith('application/json'):
 					params=await request.json()
+					logging.info('show params: %s'%params)
 					if not isinstance(params,dict):
-						return web.HTTPBadRequest('JSON body must be object.')
+						return web.HTTPBadRequest(text='JSON body must be object.')
 					kw=params
 				elif ct.startswith('applicaton/x-www-form-urlencoded') or ct.startswith('multipart/form-data'):
 					params=await request.post()
 					kw=dict(**params)
 				else:
-					return web.HTTPBadRequest('Unsupported content-ytpe:%s'%request)
+					return web.HTTPBadRequest(text='Unsupported content-type: %s.'%request.content_type)
 
 			if request.method=='GET':
 				qs=request.query_string
+				logging.info('query_string: %s'%qs)
 				if qs:
 					kw=dict()
-					for k,v in parse.parse_qs(qs,True).items():
+					for k,v in parse.parse_qs(qs, True).items():
 						kw[k]=v[0]
 
 		if kw is None:
@@ -146,16 +149,15 @@ class RequestHandler(object):
 		#check required kw:
 		if self._required_kw_args:
 			for name in self._required_kw_args:
-				if not name in kw:
-					return web.HTTPBadRequest('Missing argument: %s'% name)
-
+				if not (name in kw):
+					return web.HTTPBadRequest(text='Missing argument: %s'%name)
+					
 		logging.info('call with args: %s'%str(kw))
-
 		try:
-			r=await self._func(**kw)
+			r= await self._func(**kw)
 			return r
-		except APIError as e:
-			raise dict(error=e.error,data=e.data,message=e.message)
+		except:
+			raise APIError('Invalid')
 
 
 

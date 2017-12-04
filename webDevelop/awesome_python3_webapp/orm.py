@@ -34,6 +34,9 @@ async def create_pool(loop,**kw):
 		password=kw['password'],
 		db=kw['db'],
 		charset=kw.get('charset','utf8'),
+		
+
+
 		autocommit=kw.get('autocommit','True'),
 		maxsize=kw.get('maxsize',10),
 		minsize=kw.get('minsize',1),
@@ -214,7 +217,7 @@ class Model(dict,metaclass=ModelMetaclass):
 			args=[]
 		orderBy=kw.get('orderBy',None)
 		if orderBy:
-			sql.append('orderBy')
+			sql.append('order By')
 			sql.append(orderBy)
 		limit=kw.get('limit',None)
 		if limit is not None:
@@ -223,17 +226,17 @@ class Model(dict,metaclass=ModelMetaclass):
 				sql.append('?')
 				args.append(limit)
 			elif isinstance(limit,tuple) and len(limit)==2:
-				sql.append('?,?')
+				sql.append('?, ?')
 				args.extend(limit)
 			else:
 				raise ValueError('Invalid limit value:%s'%str(limit))
-		rs=await select(''.join(sql),args)
+		rs=await select(' '.join(sql),args)
 		return [cls(**r) for r in rs]
 
 	@classmethod
 	async def findNumber(cls, selectField, where=None, args=None):
 		'find number by select and where'
-		sql=['select %s _num_ from `s`'%(selectField, cls.__table__)]
+		sql=['select %s _num_ from `%s`'%(selectField, cls.__table__)]
 		if  where:
 			sql.append('where')
 			sql.append(where)

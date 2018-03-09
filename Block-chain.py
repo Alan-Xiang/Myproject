@@ -4,6 +4,7 @@ from time import time
 from textwrap import dedent
 from uuid import uuid4
 from flask import Flask, jsonify, request
+from urllib import parse
 
 class Blockchain(object):
 	"""docstring for Blockchain"""
@@ -12,6 +13,49 @@ class Blockchain(object):
 		self.current_transactions=[] 	#joined transactions
 		# create genesis block
 		self.new_block(previous_hash= 1, proof= 100) 
+		self.nodes= set()
+
+	def register_node(self, address):
+		'''
+		create one new node, and add it to list
+		param: address: node address(eg: 'http://192.168.0.5:5000')
+		return None
+		'''
+		parsed_url= parse.urlparse(address)
+		self.nodes.add(parsed_url.netloc)
+
+	def valid_chain(self, chain):
+		last_block= chain[0]
+		current_index= 1
+		if current_index< len(chain):
+			block= chain[current_index]
+			if block['previous_hash'] != self.hash(last_block):
+				return False
+			if self.Proof_of_Work(last_block) != block['proof']:
+				return False
+			last_block= block
+			current_index +=1
+		return True
+
+	def resolve_conflict(self):
+		neighbours= self.nodes
+		new_chain= None
+		current_length= len(self.chain)
+		for nod in neighbours:
+			response= request.get('http://%s/chain'%nod)
+			if response.status_code ==200:
+				length = response.json()['length']
+				chain= response.json()['chain']
+				if len(chain)> current_length and self.valid_chain(chain):
+					current_length= length
+					new_chain= chain
+		if new_chain:
+			self.chain= new_chain
+			return True
+
+		return False
+
+
 	def new_block(self, proof, previous_hash=None):
 		'''
 		generate new block
@@ -125,13 +169,15 @@ def mine():
 @app.route('/transaction/new', methods= ['POST'])
 def new_transaction():
 	values= request.get_json()
+
 	required= ['sender', 'recipient', 'amount']
 	for k in required:
 		if k not in values:
 			return 'Missing values', 400
 
-	index= blockchain.new_transaction(values['sender', 'recipient', 'amount'])
-	reponse= {'message': 'Transaction will be add to Block %s'%(ckchain.chain[-1]['index'])}
+	index= blockchain.new_transaction(values['sender'], values['recipient'], values['amount'])
+
+	response= {'message': 'Transaction will be add to Block %s, content is %s'%(blockchain.chain[-1]['index'], values)}
 	return jsonify(response), 201
 
 
@@ -143,6 +189,9 @@ def full_chain():
 		'length': len(blockchain.chain)
 	}
 	return jsonify(response), 200
+
+
+
 
 if __name__== '__main__':
 	app.run(host = '127.0.0.1', port= 5000)
